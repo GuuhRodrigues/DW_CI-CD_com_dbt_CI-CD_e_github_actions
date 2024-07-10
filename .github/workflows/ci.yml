@@ -57,15 +57,16 @@ jobs:
 
     - name: Run dbt debug
       run: |
-        dbt debug --vars "schema_id: ${{ env.SCHEMA_ID }}"
+        dbt debug --target pr --vars "schema_id: $SCHEMA_ID"
 
     - name: Run dbt deps
       run: |
-        dbt deps --vars "schema_id: ${{ env.SCHEMA_ID }}"
+        dbt deps --target pr --vars "schema_id: $SCHEMA_ID"
 
     - name: Run dbt build
       run: |
         if [ -f "./manifest.json" ]; then
-          dbt build -s 'state:modified+' --defer --state ./ --vars "schema_id: ${{ env.SCHEMA_ID }}"
+          dbt build -s 'state:modified+' --defer --state ./ --target pr --vars "schema_id: $SCHEMA_ID"
         else
-          dbt build --vars "schema_id: ${{ env.SCHEMA_ID }}"
+          dbt build --target pr --vars "schema_id: $SCHEMA_ID"
+        fi
