@@ -10,18 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GCLOUD_SERVICE_KEY: ${{ secrets.GCLOUD_SERVICE_KEY }}
-      GCLOUD_STORAGE_PATH_MANIFEST: ${{ secrets.GCLOUD_STORAGE_PATH_MANIFEST }}
-      DBT_ENV_SECRET_TYPE: ${{ secrets.DBT_ENV_SECRET_TYPE }} 
-      DBT_ENV_SECRET_PROJECT_ID: ${{ secrets.DBT_ENV_SECRET_PROJECT_ID }}
-      DBT_ENV_SECRET_PRIVATE_KEY_ID: ${{ secrets.DBT_ENV_SECRET_PRIVATE_KEY_ID }} 
-      DBT_ENV_SECRET_PRIVATE_KEY: ${{ secrets.DBT_ENV_SECRET_PRIVATE_KEY }}  
-      DBT_ENV_SECRET_CLIENT_EMAIL: ${{ secrets.DBT_ENV_SECRET_CLIENT_EMAIL }}
-      DBT_ENV_SECRET_CLIENT_ID: ${{ secrets.DBT_ENV_SECRET_CLIENT_ID }} 
-      DBT_ENV_SECRET_AUTH_URI: ${{ secrets.DBT_ENV_SECRET_AUTH_URI }}
-      DBT_ENV_SECRET_TOKEN_URI: ${{ secrets.DBT_ENV_SECRET_TOKEN_URI }}
-      DBT_ENV_SECRET_AUTH_PROVIDER_X509_CERT_URL: ${{ secrets.DBT_ENV_SECRET_AUTH_PROVIDER_X509_CERT_URL }} 
-      DBT_ENV_SECRET_CLIENT_X509_CERT_URL: ${{ secrets.DBT_ENV_SECRET_CLIENT_X509_CERT_URL }} 
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      S3_PATH_MANIFEST: ${{ secrets.S3_PATH_MANIFEST }}
+      DB_HOST_PROD: ${{ secrets.DB_HOST_PROD }} 
+      DB_PORT_PROD: ${{ secrets.DB_PORT_PROD }}
+      DB_NAME_PROD: ${{ secrets.DB_NAME_PROD }} 
+      DB_USER_PROD: ${{ secrets.DB_USER_PROD }}  
+      DB_PASS_PROD: ${{ secrets.DB_PASS_PROD }}
+      DB_SCHEMA_PROD: ${{ secrets.DB_SCHEMA_PROD }} 
+      DB_SCHEMA_DEV: ${{ secrets.DB_SCHEMA_DEV }}
+      DB_SCHEMA_RAW: ${{ secrets.DB_SCHEMA_RAW }}
+      DB_THREADS_PROD: ${{ secrets.DB_THREADS_PROD }} 
+      DB_TYPE_PROD: ${{ secrets.DB_TYPE_PROD }}
+      DBT_PROFILES_DIR: ${{ secrets.DBT_PROFILES_DIR }}
 
     steps:
     - name: Checkout repository
@@ -35,19 +38,15 @@ jobs:
     - name: Install dependencies
       run: pip install -r src/requirements.txt
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v0.4.3
-      with:
-        credentials_json: ${{ secrets.GCLOUD_SERVICE_KEY }}
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-      with:
-        project_id: ${{ secrets.DBT_ENV_SECRET_PROJECT_ID }}
-
-    - name: Copy manifest.json from Google Cloud Storage
+    - name: Configure AWS Credentials
       run: |
-        gsutil cp gs://${{ env.GCLOUD_STORAGE_PATH_MANIFEST }}/manifest.json ./ || echo "Manifest not found"
+        echo "[default]" > ~/.aws/credentials
+        echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+        echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+
+    - name: Copy manifest.json from S3
+      run: |
+        aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
 
     - name: Run dbt debug
       run: dbt debug --target prod
