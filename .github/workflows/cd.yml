@@ -73,4 +73,4 @@ jobs:
 
     - name: Copy new manifest.json to S3
       run: |
-        aws s3 cp ./datawarehouse/target/manifest.json s3://${{ env.S3_BUCKET_NAME }}/
+        aws s3 cp ./datawarehouse/target/manifest.json s3://${{ env.S3_BUCKET_NAME }}/ --debug
