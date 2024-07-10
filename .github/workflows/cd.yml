@@ -64,6 +64,7 @@ jobs:
 
     - name: Run dbt build
       run: |
+        cd datawarehouse
         if [ -f "./manifest.json" ]; then
           dbt build -s 'state:modified+' --state ./ --target prod
         else

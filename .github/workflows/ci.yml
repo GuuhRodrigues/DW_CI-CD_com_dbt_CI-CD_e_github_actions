@@ -67,6 +67,7 @@ jobs:
 
     - name: Run dbt build
       run: |
+        cd datawarehouse
         if [ -f "./manifest.json" ]; then
           dbt build -s 'state:modified+' --defer --state ./ --target pr --vars "schema_id: $SCHEMA_ID"
         else
