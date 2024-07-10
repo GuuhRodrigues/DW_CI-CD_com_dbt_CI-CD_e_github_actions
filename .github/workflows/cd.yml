@@ -1,0 +1,76 @@
+name: CD_action
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  CD_job:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      S3_PATH_MANIFEST: ${{ secrets.S3_PATH_MANIFEST }}
+      DB_HOST_PROD: ${{ secrets.DB_HOST_PROD }} 
+      DB_PORT_PROD: ${{ secrets.DB_PORT_PROD }}
+      DB_NAME_PROD: ${{ secrets.DB_NAME_PROD }} 
+      DB_USER_PROD: ${{ secrets.DB_USER_PROD }}  
+      DB_PASS_PROD: ${{ secrets.DB_PASS_PROD }}
+      DB_SCHEMA_PROD: ${{ secrets.DB_SCHEMA_PROD }} 
+      DB_SCHEMA_DEV: ${{ secrets.DB_SCHEMA_DEV }}
+      DB_SCHEMA_RAW: ${{ secrets.DB_SCHEMA_RAW }}
+      DB_THREADS_PROD: ${{ secrets.DB_THREADS_PROD }} 
+      DB_TYPE_PROD: ${{ secrets.DB_TYPE_PROD }}
+      DBT_PROFILES_DIR: ${{ secrets.DBT_PROFILES_DIR }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: pip install -r src/requirements.txt
+      
+    - name: Create .aws directory
+      run: mkdir -p ~/.aws 
+
+    - name: Configure AWS Credentials
+      run: |
+        mkdir -p ~/.aws
+        echo "[default]" > ~/.aws/credentials
+        echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+        echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+
+    - name: Copy manifest.json from S3
+      run: |
+        aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
+
+    - name: Run dbt debug
+      run: |
+        cd datawarehouse
+        dbt debug --target prod
+
+    - name: Run dbt deps
+      run: |
+        cd datawarehouse
+        dbt deps --target prod
+
+    - name: Run dbt build
+      run: |
+        cd datawarehouse
+        if [ -f "./manifest.json" ]; then
+          dbt build -s 'state:modified+' --state ./ --target prod
+        else
+          dbt build --target prod
+        fi
+
+    - name: Copy new manifest.json to S3
+      run: |
+        aws s3 cp ./target/manifest.json s3://teste-eng-dados-dbt/
