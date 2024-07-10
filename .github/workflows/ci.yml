@@ -69,4 +69,3 @@ jobs:
           dbt build -s 'state:modified+' --defer --state ./ --vars "schema_id: ${{ env.SCHEMA_ID }}"
         else
           dbt build --vars "schema_id: ${{ env.SCHEMA_ID }}"
-        fi
