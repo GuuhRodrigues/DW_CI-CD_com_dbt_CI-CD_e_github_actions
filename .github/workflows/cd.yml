@@ -43,7 +43,6 @@ jobs:
 
     - name: Configure AWS Credentials
       run: |
-        mkdir -p ~/.aws
         echo "[default]" > ~/.aws/credentials
         echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
         echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
@@ -69,12 +68,8 @@ jobs:
           dbt build -s 'state:modified+' --state ./ --target prod
         else
           dbt build --target prod
-        fi
 
     - name: Copy new manifest.json to S3
       run: |
-        echo "[default]" > ~/.aws/credentials
-        echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
-        echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
         cd datawarehouse/target
-        aws s3 cp manifest.json s3://teste-eng-dados-dbt/
+        aws s3 cp manifest.json s3://${{ env.S3_BUCKET_NAME }}/
