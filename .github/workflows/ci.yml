@@ -39,6 +39,9 @@ jobs:
     - name: Install dependencies
       run: pip install -r src/requirements.txt
 
+    - name: Create .aws directory
+      run: mkdir -p ~/.aws  
+
     - name: Configure AWS Credentials
       run: |
         echo "[default]" > ~/.aws/credentials
