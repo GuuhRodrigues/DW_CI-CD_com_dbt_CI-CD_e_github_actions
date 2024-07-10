@@ -58,7 +58,9 @@ jobs:
         dbt debug --target prod
 
     - name: Run dbt deps
-      run: dbt deps --target prod
+      run: |
+        cd datawarehouse
+        dbt deps --target prod
 
     - name: Run dbt build
       run: |

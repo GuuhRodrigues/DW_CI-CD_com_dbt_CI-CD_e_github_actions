@@ -62,6 +62,7 @@ jobs:
 
     - name: Run dbt deps
       run: |
+        cd datawarehouse
         dbt deps --target pr --vars "schema_id: $SCHEMA_ID"
 
     - name: Run dbt build
