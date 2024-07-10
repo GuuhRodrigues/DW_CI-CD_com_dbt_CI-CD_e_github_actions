@@ -1,5 +1,5 @@
 datawarehouse:
-  target: prod
+  target: dev
   outputs:
     prod:
       type: postgres
@@ -9,5 +9,38 @@ datawarehouse:
       port: "{{ env_var('DB_PORT_PROD') | int }}"
       dbname: "{{ env_var('DB_NAME_PROD') }}"
       schema: "{{ env_var('DB_SCHEMA_PROD') }}"
+      threads: "{{ env_var('DB_THREADS_PROD') | int }}"
+      keepalives_idle: 0
+
+    dev:
+      type: postgres
+      host: "{{ env_var('DB_HOST_PROD') }}"
+      user: "{{ env_var('DB_USER_PROD') }}"
+      password: "{{ env_var('DB_PASS_PROD') }}"
+      port: "{{ env_var('DB_PORT_PROD') | int }}"
+      dbname: "{{ env_var('DB_NAME_PROD') }}"
+      schema: "{{ env_var('DB_SCHEMA_DEV') }}"
+      threads: "{{ env_var('DB_THREADS_PROD') | int }}"
+      keepalives_idle: 0
+
+    raw:
+      type: postgres
+      host: "{{ env_var('DB_HOST_PROD') }}"
+      user: "{{ env_var('DB_USER_PROD') }}"
+      password: "{{ env_var('DB_PASS_PROD') }}"
+      port: "{{ env_var('DB_PORT_PROD') | int }}"
+      dbname: "{{ env_var('DB_NAME_PROD') }}"
+      schema: "{{ env_var('DB_SCHEMA_RAW') }}"
+      threads: "{{ env_var('DB_THREADS_PROD') | int }}"
+      keepalives_idle: 0  
+  
+    pr:
+      type: postgres
+      host: "{{ env_var('DB_HOST_PROD') }}"
+      user: "{{ env_var('DB_USER_PROD') }}"
+      password: "{{ env_var('DB_PASS_PROD') }}"
+      port: "{{ env_var('DB_PORT_PROD') | int }}"
+      dbname: "{{ env_var('DB_NAME_PROD') }}"
+      schema: "pr_{{ var('schema_id')}}"
       threads: "{{ env_var('DB_THREADS_PROD') | int }}"
       keepalives_idle: 0
