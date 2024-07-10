@@ -57,6 +57,7 @@ jobs:
 
     - name: Run dbt debug
       run: |
+        cd datawarehouse
         dbt debug --target pr --vars "schema_id: $SCHEMA_ID"
 
     - name: Run dbt deps

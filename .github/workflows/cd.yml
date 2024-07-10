@@ -53,7 +53,9 @@ jobs:
         aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
 
     - name: Run dbt debug
-      run: dbt debug --target prod
+      run: |
+        cd datawarehouse
+        dbt debug --target prod
 
     - name: Run dbt deps
       run: dbt deps --target prod
