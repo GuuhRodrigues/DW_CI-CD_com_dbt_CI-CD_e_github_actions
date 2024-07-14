@@ -49,6 +49,7 @@ jobs:
 
     - name: Copy manifest.json from S3
       run: |
+        echo "Copying manifest.json from S3"
         aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
 
     - name: Run dbt debug
@@ -72,5 +73,6 @@ jobs:
 
     - name: Copy new manifest.json to S3
       run: |
+        echo "Copying new manifest.json to S3"
         cd datawarehouse/target
         aws s3 cp manifest.json s3://${{ env.S3_BUCKET_NAME }}/
