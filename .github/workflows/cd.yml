@@ -70,6 +70,7 @@ jobs:
           dbt build -s 'state:modified+' --state ./ --target prod
         else
           dbt build --target prod
+        fi
 
     - name: Copy new manifest.json to S3
       run: |
