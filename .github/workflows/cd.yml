@@ -37,7 +37,7 @@ jobs:
 
     - name: Install dependencies
       run: pip install -r src/requirements.txt
-      
+
     - name: Create .aws directory
       run: mkdir -p ~/.aws 
 
@@ -51,6 +51,7 @@ jobs:
       run: |
         echo "Copying manifest.json from S3"
         aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
+        ls -al
 
     - name: Run dbt debug
       run: |
@@ -69,10 +70,19 @@ jobs:
           dbt build -s 'state:modified+' --state ./ --target prod
         else
           dbt build --target prod
-        fi
 
     - name: Copy new manifest.json to S3
       run: |
-        echo "Copying new manifest.json to S3"
+        echo "Listing files before copying to S3:"
         cd datawarehouse/target
+        ls -al
+        echo "Copying new manifest.json to S3"
         aws s3 cp manifest.json s3://${{ env.S3_BUCKET_NAME }}/
+        ls -al
+
+    - name: Display environment variables
+      run: |
+        echo "AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}"
+        echo "AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}"
+        echo "S3_BUCKET_NAME: ${{ env.S3_BUCKET_NAME }}"
+        echo "S3_PATH_MANIFEST: ${{ env.S3_PATH_MANIFEST }}"
