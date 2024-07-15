@@ -43,6 +43,7 @@ jobs:
 
     - name: Configure AWS Credentials
       run: |
+        sudo apt install awscli
         echo "[default]" > ~/.aws/credentials
         echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
         echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
@@ -74,11 +75,9 @@ jobs:
 
     - name: Copy new manifest.json to S3
       run: |
-        echo "Listing files before copying to S3:"
-        cd datawarehouse/target
-        ls -al
         echo "Copying new manifest.json to S3"
-        aws s3 cp manifest.json s3://${{ env.S3_BUCKET_NAME }}/
+        sudo apt install awscli
+        aws s3 cp ./datawarehouse/target/manifest.json s3://${{ env.S3_BUCKET_NAME }}/
         ls -al
 
     - name: Display environment variables
