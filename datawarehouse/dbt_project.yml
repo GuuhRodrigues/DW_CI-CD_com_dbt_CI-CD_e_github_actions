@@ -35,10 +35,4 @@ models:
     example:
       +materialized: view
 
-on-run-end: "{% if target.name == 'pr' %}
-  {% set schema_exists = dbt.query(
-    "SELECT 1 FROM information_schema.schemata WHERE schema_name = '{{ target.schema }}'").count() > 0 %}
-  {% if schema_exists %}
-    DROP SCHEMA {{ target.schema }} CASCADE;
-  {% endif %}
-{% endif %}"
+#on-run-end: "{% if target.name == 'pr' %} drop schema {{target.schema}} cascade {% endif}"
