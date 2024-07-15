@@ -41,17 +41,15 @@ jobs:
     - name: Create .aws directory
       run: mkdir -p ~/.aws 
 
+    - name: Install AWS CLI
+      run: sudo apt-get update && sudo apt-get install -y awscli
+
     - name: Configure AWS Credentials
       run: |
-        echo "[default]" > ~/.aws/credentials
-        echo "aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
-        echo "aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
-
-    - name: Install AWS CLI
-      run: |
-        echo "Installing AWS CLI"
-        sudo apt-get update
-        sudo apt-get install -y awscli
+        aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region us-east-1
+        aws configure set output json
 
     - name: Verify AWS CLI Installation
       run: aws --version
@@ -79,7 +77,6 @@ jobs:
           dbt build -s 'state:modified+' --state ./ --target prod
         else
           dbt build --target prod
-        fi
 
     - name: Copy new manifest.json to S3
       run: |
