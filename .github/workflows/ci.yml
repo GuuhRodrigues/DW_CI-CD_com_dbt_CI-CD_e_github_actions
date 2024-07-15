@@ -38,9 +38,6 @@ jobs:
     - name: Install dependencies
       run: pip install -r src/requirements.txt
 
-    - name: Create .aws directory
-      run: mkdir -p ~/.aws
-
     - name: Install AWS CLI
       run: sudo apt-get update && sudo apt-get install -y awscli
 
