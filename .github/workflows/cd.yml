@@ -53,6 +53,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y awscli
 
+    - name: Verify AWS CLI Installation
+      run: aws --version
+
     - name: Copy manifest.json from S3
       run: |
         echo "Copying manifest.json from S3"
@@ -81,7 +84,6 @@ jobs:
     - name: Copy new manifest.json to S3
       run: |
         echo "Copying new manifest.json to S3"
-        sudo apt install awscli
         aws s3 cp ./datawarehouse/target/manifest.json s3://${{ env.S3_BUCKET_NAME }}/
         ls -al
 
