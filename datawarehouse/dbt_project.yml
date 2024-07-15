@@ -35,4 +35,4 @@ models:
     example:
       +materialized: view
 
-on-run-end: "{% if target.name == 'pr' %} drop schema {{target.schema}} cascade {% endit}"
+on-run-end: "{% if target.name == 'pr' %} drop schema {{target.schema}} cascade {% endif}"
