@@ -34,3 +34,5 @@ models:
     # Config indicated by + and applies to all files under models/example/
     example:
       +materialized: view
+
+#on-run-end: "{% if target.name == 'pr' %} drop schema {{target.schema}} cascade {% endif}"
