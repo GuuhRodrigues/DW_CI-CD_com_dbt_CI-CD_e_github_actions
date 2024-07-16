@@ -31,27 +31,8 @@ clean-targets:         # directories to be removed by `dbt clean`
 # files using the `{{ config(...) }}` macro.
 models:
   datawarehouse:
-    # Configurations for models in the staging folder
-    staging:
-      +schema: staging
+    # Config indicated by + and applies to all files under models/example/
+    example:
       +materialized: view
-
-      stg_commodities:
-        enabled: true
-
-      stg_movimentacao_commodities:
-        enabled: true
-      +docs:
-        node_color: "#c0c0c0"  # Cor prata
-
-    # Configurations for models in the datamart folder
-    datamart:
-      +schema: datamart
-      +materialized: view
-      +docs:
-        node_color: "#e6b530"  # Cor gold
-
-      dm_commodities:
-        enabled: true
 
 #on-run-end: "{% if target.name == 'pr' %} drop schema {{target.schema}} cascade {% endif}"
