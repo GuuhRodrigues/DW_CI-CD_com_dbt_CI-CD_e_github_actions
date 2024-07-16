@@ -1,60 +1,268 @@
-# DW_CI-CD_com_dbt_CI-CD_e_github_actions
+# Documentação do Projeto de Data Warehouse (DW) com ELT usando Dbt, CI/CD e GitHub Actions
 
-## Overview
+## Visão Geral do Projeto
+Este projeto tem como objetivo implementar um Data Warehouse (DW) utilizando a abordagem ELT (Extract, Load, Transform) com a ferramenta Dbt (Data Build Tool). O pipeline de integração contínua (CI) e entrega contínua (CD) foi configurado utilizando GitHub Actions para garantir que as transformações e cargas de dados sejam executadas de maneira automatizada e segura.
 
-This repository contains the dbt project for Jaffle Shop, configured with a CI/CD pipeline using GitHub Actions and Google Cloud Platform (GCP). This setup is designed to demonstrate and implement best practices for testing and deploying dbt models. It's adaptable for others platforms beyond GCP.
+## Estrutura do Projeto
+Esquemas do Banco de Dados
+O projeto utiliza três esquemas distintos no banco de dados para representar diferentes ambientes de processamento:
 
-## CI/CD Pipeline Explanation
+  1. raw: Onde é realizada a extração e carga dos dados brutos.
+  2. dev: Onde são feitas as transformações, testes e validações dos dados.
+  3. prod: Onde os dados transformados e testados são carregados após a conclusão das etapas de CI e CD.
+     
+## Armazenamento de Metadados
+O Dbt utiliza o arquivo manifest.json para comparar mudanças no projeto. Este arquivo é salvo em um bucket S3 para facilitar a recuperação e comparação de estados anteriores durante o processo de CI/CD.
 
-The GitHub Actions configuration is divided into two primary workflow files: `CI.yml` for Continuous Integration and `CD.yml` for Continuous Deployment.
+## Código de Extração dos Dados
+O código a seguir realiza a extração dos dados de commodities usando a biblioteca yfinance e salva os dados no esquema raw do banco de dados PostgreSQL:
 
-### Continuous Integration (CI) Workflow
+```bash
+import yfinance as yf
+import pandas as pd
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+import os
 
-The `CI.yml` workflow triggers on every pull request to the `main` branch to ensure that changes are tested before merging. The workflow details are as follows:
+load_dotenv()
 
-1. **Dependencies Installation**
-      - **Python Dependencies**: Install all required Python packages specified in `dbt-requirements.txt`.
-      - **Google Cloud SDK Installation**: Install the Google Cloud SDK to interact with Google Cloud resources.
+DB_HOST = os.getenv('DB_HOST_PROD')
+DB_PORT = os.getenv('DB_PORT_PROD')
+DB_NAME = os.getenv('DB_NAME_PROD')
+DB_USER = os.getenv('DB_USER_PROD')
+DB_PASS = os.getenv('DB_PASS_PROD')
+DB_SCHEMA = os.getenv('DB_SCHEMA_RAW')
 
-2. **Authentication**
-      - **Service Account Authentication**: Utilize the Google Cloud SDK to authenticate using a service account key, crucial for accessing GCP services securely.
+DATABASE_URL = f'postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 
-3. **Schema Management**
-      - **Dynamic Schema Creation**: Generate a unique schema identifier based on the pull request ID and commit hash. This schema is used to isolate testing from the production environment.
+engine = create_engine(DATABASE_URL)
 
-4. **dbt Commands Execution**
-      - **Debugging and Dependencies**: Run `dbt debug` and `dbt deps` to verify configurations and fetch dependencies.
-      - **Conditional Build**: Attempt to download the `manifest.json` to compare with the local changes.
-         - If present, dbt builds only modified and downstream resources (`state:modified+`) in the new schema. To be able to build only modified resources, it references the upstream resources from the production schema, using the  `--defer` flag.
-         - This comparison ensures that only resources affected by the changes are tested.
-         - If no manifest.json is found, it performs a full build.
-      - **Schema Cleanup**: After testing, the temporary schema is dropped to clean up resources. This step actually is a on-run-end hook, and not a pipeline step.
+commodities = ['CL=F', 'GC=F', 'SI=F']
 
-### Continuous Deployment (CD) Workflow
+def buscar_dados_commodities(simbolo, periodo='5d', intervalo='1d'):
+    ticker = yf.Ticker(simbolo)
+    dados = ticker.history(period=periodo, interval=intervalo)[['Close']]
+    dados['simbolo'] = simbolo
+    return dados
 
-The `CD.yml` workflow executes when changes are merged into the main branch. It builds modified dbt resources and downstream dependencies in the production schema, ensuring that production data remains up-to-date:
+def buscar_todos_dados_commodities(commodities):
+    todos_dados = []
+    for simbolo in commodities:
+        dados = buscar_dados_commodities(simbolo)
+        todos_dados.append(dados)
+    return pd.concat(todos_dados)
 
-1. **Environment and Authentication Setup**
-      - As in the CI workflow, prepare environment variables and authenticate using the Google Cloud SDK.
+def salvar_no_postgres(df, schema='raw'):
+    df.to_sql('commodities', engine, if_exists='replace', index=True, index_label='Date', schema=schema)
 
-2. **Retrieve Production Manifest**
-      - **Manifest Download**: Download the existing `manifest.json` from GCP to handle incremental builds by identifying changed models.
+if __name__ == "__main__":
+    dados_concatenados = buscar_todos_dados_commodities(commodities)
+    salvar_no_postgres(dados_concatenados, schema='raw')
+```
+## Configuração de CI com GitHub Actions
+O arquivo de configuração de CI (CI_action.yml) define o fluxo de trabalho para integração contínua, que é executado em cada pull request na branch principal:
+```bash
+name: CI_action
 
-3. **Production dbt Execution**
-      - **Production Build**: Execute dbt commands to update the production environment. It builds modified resources and their downstream dependencies (`state:modified+`), using the updated manifest to determine changes. If no manifest.json is found, it performs a full build (useful when running the project for the first time).
-      - **Manifest Update**: After successful deployment, upload the current `manifest.json` back to GCP. This step updates the manifest to reflect the latest state, for subsequent CI runs.
+on:
+  pull_request:
+    branches:
+      - main
 
-## Platform Flexibility
+jobs:
+  CI_job:
+    runs-on: ubuntu-latest
 
-This pipeline is designed with flexibility in mind, particularly in terms of platform dependency. The steps involving authentication and manifest handling are currently tailored for GCP but can be adapted for other platforms like AWS, Azure, or even on-premise solutions.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      S3_PATH_MANIFEST: ${{ secrets.S3_PATH_MANIFEST }}
+      DB_HOST_PROD: ${{ secrets.DB_HOST_PROD }}
+      DB_PORT_PROD: ${{ secrets.DB_PORT_PROD }}
+      DB_NAME_PROD: ${{ secrets.DB_NAME_PROD }}
+      DB_USER_PROD: ${{ secrets.DB_USER_PROD }}
+      DB_PASS_PROD: ${{ secrets.DB_PASS_PROD }}
+      DB_SCHEMA_PROD: ${{ secrets.DB_SCHEMA_PROD }}
+      DB_SCHEMA_DEV: ${{ secrets.DB_SCHEMA_DEV }}
+      DB_SCHEMA_RAW: ${{ secrets.DB_SCHEMA_RAW }}
+      DB_THREADS_PROD: ${{ secrets.DB_THREADS_PROD }}
+      DB_TYPE_PROD: ${{ secrets.DB_TYPE_PROD }}
+      DBT_PROFILES_DIR: ${{ secrets.DBT_PROFILES_DIR }}
 
-### Modifying for Other Platforms
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-- **Authentication**: Replace GCP authentication steps with corresponding steps for AWS (using AWS CLI and IAM roles) or Azure (using Azure CLI and service principals).
-- **Manifest Storage**: Change commands related to `gsutil` (used for interacting with Google Cloud Storage) to equivalent commands for other services like Amazon S3 or Azure Blob Storage.
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.12'
 
-## Setup and Configuration
+    - name: Install dependencies
+      run: pip install -r src/requirements.txt
 
-To implement this pipeline:
-1. **Clone the Repository**: Get a copy of this repository.
-2. **Configure Environment Variables**: Set all necessary variables in GitHub Secrets settings.
+    - name: Install AWS CLI
+      run: sudo apt-get update && sudo apt-get install -y awscli
+
+    - name: Configure AWS Credentials
+      run: |
+        aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region us-east-1
+        aws configure set output json
+
+    - name: Verify AWS CLI Installation
+      run: aws --version
+
+    - name: Copy manifest.json from S3
+      run: |
+        aws s3 cp s3://teste-eng-dados-dbt/manifest.json ./ || echo "Manifest not found"
+
+    - name: Get Schema ID
+      id: schema_id
+      run: echo "SCHEMA_ID=${{ github.event.pull_request.number }}__${{ github.sha }}" >> $GITHUB_ENV
+
+    - name: Run dbt debug
+      run: |
+        cd datawarehouse
+        dbt debug --target pr --vars "schema_id: $SCHEMA_ID"
+
+    - name: Run dbt deps
+      run: |
+        cd datawarehouse
+        dbt deps --target pr --vars "schema_id: $SCHEMA_ID"
+
+    - name: Run dbt build
+      run: |
+        cd datawarehouse
+        if [ -f "./manifest.json" ]; then
+          dbt build -s 'state:modified+' --defer --state ./ --target pr --vars "schema_id: $SCHEMA_ID"
+        else
+          dbt build --target pr --vars "schema_id: $SCHEMA_ID"
+        fi
+```
+## Configuração de CD com GitHub Actions
+O arquivo de configuração de CD (CD_action.yml) define o fluxo de trabalho para entrega contínua, que é executado em cada push na branch principal:
+```bash
+name: CD_action
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  CD_job:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      S3_PATH_MANIFEST: ${{ secrets.S3_PATH_MANIFEST }}
+      DB_HOST_PROD: ${{ secrets.DB_HOST_PROD }} 
+      DB_PORT_PROD: ${{ secrets.DB_PORT_PROD }}
+      DB_NAME_PROD: ${{ secrets.DB_NAME_PROD }} 
+      DB_USER_PROD: ${{ secrets.DB_USER_PROD }}  
+      DB_PASS_PROD: ${{ secrets.DB_PASS_PROD }}
+      DB_SCHEMA_PROD: ${{ secrets.DB_SCHEMA_PROD }} 
+      DB_SCHEMA_DEV: ${{ secrets.DB_SCHEMA_DEV }}
+      DB_SCHEMA_RAW: ${{ secrets.DB_SCHEMA_RAW }}
+      DB_THREADS_PROD: ${{ secrets.DB_THREADS_PROD }} 
+      DB_TYPE_PROD: ${{ secrets.DB_TYPE_PROD }}
+      DBT_PROFILES_DIR: ${{ secrets.DBT_PROFILES_DIR }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: pip install -r src/requirements.txt
+
+    - name: Install AWS CLI
+      run: sudo apt-get update && sudo apt-get install -y awscli
+
+    - name: Configure AWS Credentials
+      run: |
+        aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region us-east-1
+        aws configure set output json
+
+    - name: Verify AWS CLI Installation
+      run: aws --version
+
+    - name: Copy manifest.json from S3
+      run: |
+        echo "Copying manifest.json from S3"
+        aws s3 cp s3://${{ env.S3_BUCKET_NAME }}/${{ env.S3_PATH_MANIFEST }} ./ || echo "Manifest not found"
+        ls -al
+
+    - name: Run dbt debug
+      run: |
+        cd datawarehouse
+        dbt debug --target prod
+
+    - name: Run dbt deps
+      run: |
+        cd datawarehouse
+        dbt deps --target prod
+
+    - name: Run dbt build
+      run: |
+        cd datawarehouse
+        if [ -f "./manifest.json" ]; then
+          dbt build -s 'state:modified+' --state ./ --target prod
+        else
+          dbt build --target prod
+        fi
+
+    - name: Copy new manifest.json to S3
+      run: |
+        echo "Copying new manifest.json to S3"
+        aws s3 cp ./datawarehouse/target/manifest.json s3://${{ env.S3_BUCKET_NAME }}/
+        ls -al
+
+    - name: Display environment variables
+      run: |
+        echo "AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}"
+        echo "AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}"
+        echo "S3_BUCKET_NAME: ${{ env.S3_BUCKET_NAME }}"
+        echo "S3_PATH_MANIFEST: ${{ env.S3_PATH_MANIFEST }}"
+```
+
+### Detalhamento do Fluxo de Trabalho
+
+#### CI (Continuous Integration)
+
+1. **Checkout do Repositório**: Faz checkout do código-fonte do repositório.
+2. **Configuração do Python**: Instala a versão especificada do Python.
+3. **Instalação de Dependências**: Instala as dependências necessárias listadas no arquivo `requirements.txt`.
+4. **Instalação e Configuração do AWS CLI**: Instala e configura a CLI da AWS para interação com S3.
+5. **Cópia do Manifesto do S3**: Faz o download do arquivo `manifest.json` do bucket S3.
+6. **Definição do Schema ID**: Gera um ID único para o schema com base no número do pull request e no SHA do commit.
+7. **Debug e Deps do Dbt**: Executa os comandos `dbt debug` e `dbt deps` para verificar a configuração e baixar as dependências.
+8. **Build do Dbt**: Executa o comando `dbt build` para construir os modelos de dados, utilizando o estado deferido se o manifesto existir.
+
+#### CD (Continuous Deployment)
+
+1. **Checkout do Repositório**: Faz checkout do código-fonte do repositório.
+2. **Configuração do Python**: Instala a versão especificada do Python.
+3. **Instalação de Dependências**: Instala as dependências necessárias listadas no arquivo `requirements.txt`.
+4. **Instalação e Configuração do AWS CLI**: Instala e configura a CLI da AWS para interação com S3.
+5. **Cópia do Manifesto do S3**: Faz o download do arquivo `manifest.json` do bucket S3.
+6. **Debug e Deps do Dbt**: Executa os comandos `dbt debug` e `dbt deps` para verificar a configuração e baixar as dependências.
+7. **Build do Dbt**: Executa o comando `dbt build` para construir os modelos de dados, utilizando o estado deferido se o manifesto existir.
+8. **Cópia do Novo Manifesto para o S3**: Faz o upload do novo arquivo `manifest.json` para o bucket S3.
+
+### Conclusão
+
+Esta documentação cobre a implementação de um Data Warehouse utilizando a abordagem ELT com Dbt e a configuração de pipelines de CI e CD utilizando GitHub Actions. A arquitetura do projeto com esquemas separados para raw, dev e prod, juntamente com a automação dos fluxos de trabalho de CI e CD, garante uma integração contínua e um processo de entrega contínua eficiente e confiável. 
+
+Se precisar de mais alguma informação ou ajuste na documentação, por favor, me avise!
